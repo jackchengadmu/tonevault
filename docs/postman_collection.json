@@ -1,0 +1,291 @@
+{
+  "info": {
+    "name": "ToneVault API",
+    "description": "Catalog and order endpoints, including Challenge 1 validation cases.\n\nSetup:\n1. Set `baseUrl` (local: http://localhost:3000, or your Vercel URL).\n2. Run `npm run seed` and copy the printed `buyer_id` into the collection variable.\n3. Send **GET /api/products** first — it stores an available `productId` for the order tests.\n4. Run Challenge 1 cases 1–6. Case 2 creates a real order; run it last on a listing that is still available.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "productId",
+      "value": "b2ba9952-2b7a-4ad2-b84e-06ef55be7bd9"
+    },
+    {
+      "key": "buyerId",
+      "value": "a073c9e6-2118-4261-9974-ac692060cf9f"
+    },
+    {
+      "key": "missingProductId",
+      "value": "00000000-0000-4000-8000-000000000000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Catalog",
+      "item": [
+        {
+          "name": "GET /api/products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const list = body.data || body.products || [];",
+                  "pm.test('Returns a product list', () => pm.expect(Array.isArray(list)).to.be.true);",
+                  "const available = list.find((item) => item.status === 'available' && (item.stock ?? 1) > 0);",
+                  "if (available) {",
+                  "  pm.collectionVariables.set('productId', available.id);",
+                  "  console.log('Saved productId', available.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/products",
+            "description": "List available instruments. Saves the first in-stock id to `productId`."
+          }
+        },
+        {
+          "name": "GET /api/products/:id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns the instrument', () => {",
+                  "  pm.expect(body.ok).to.eql(true);",
+                  "  pm.expect(body.data).to.have.property('id');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/products/{{productId}}",
+            "description": "Fetch one listing, seller profile, and inspection metrics."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Challenge 1",
+      "item": [
+        {
+          "name": "1 Quantity -3 (expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{productId}}\",\n  \"buyer_id\": \"{{buyerId}}\",\n  \"quantity\": -3\n}"
+            },
+            "url": "{{baseUrl}}/api/orders",
+            "description": "Rejects zero or negative quantity with HTTP 400. Also try quantity 0."
+          }
+        },
+        {
+          "name": "2 Wrong client total (expect 201 server total or 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const status = pm.response.code;",
+                  "pm.test('201 with server total, or 400', () => {",
+                  "  pm.expect([201, 400]).to.include(status);",
+                  "});",
+                  "if (status === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test('Ignores client total of 1', () => {",
+                  "    pm.expect(body.data.order.total_amount).to.not.eql(1);",
+                  "    pm.expect(body.data.order.total_amount).to.be.above(1);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{productId}}\",\n  \"buyer_id\": \"{{buyerId}}\",\n  \"quantity\": 1,\n  \"total\": 1,\n  \"total_amount\": 1\n}"
+            },
+            "url": "{{baseUrl}}/api/orders",
+            "description": "Client sends total: 1. Server must persist catalog price × quantity (201) or reject (400). Creates a real order — run after GET /api/products on an available listing, and after cases 1, 3–6."
+          }
+        },
+        {
+          "name": "3 Quantity exceeds stock (expect 409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{productId}}\",\n  \"buyer_id\": \"{{buyerId}}\",\n  \"quantity\": 3\n}"
+            },
+            "url": "{{baseUrl}}/api/orders",
+            "description": "Seed listings have stock 1. Quantity 3 must return HTTP 409."
+          }
+        },
+        {
+          "name": "4 Unknown product id (expect 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{missingProductId}}\",\n  \"buyer_id\": \"{{buyerId}}\",\n  \"quantity\": 1\n}"
+            },
+            "url": "{{baseUrl}}/api/orders",
+            "description": "Order for a UUID that is not in Supabase. Companion GET is Challenge 1 — 4b."
+          }
+        },
+        {
+          "name": "4b GET unknown product id (expect 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/products/{{missingProductId}}",
+            "description": "Product detail for a missing id returns HTTP 404, not an empty 200."
+          }
+        },
+        {
+          "name": "5 Missing quantity (expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{productId}}\",\n  \"buyer_id\": \"{{buyerId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/orders",
+            "description": "Required field `quantity` omitted. Zod returns HTTP 400."
+          }
+        },
+        {
+          "name": "6 Search matches nothing (expect 200 empty list)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const list = body.data || body.products || [];",
+                  "pm.test('Empty list, not 404', () => {",
+                  "  pm.expect(Array.isArray(list)).to.be.true;",
+                  "  pm.expect(list.length).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/products?search=zzzz-no-such-guitar-xyz",
+            "description": "Keyword search with no hits must be HTTP 200 with data: []."
+          }
+        }
+      ]
+    }
+  ]
+}
