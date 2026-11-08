@@ -2,16 +2,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { FeaturedCollection } from "@/src/components/featured-collection";
+import { isCatalogPreview } from "@/src/lib/catalog/preview-mode";
 
 const HERO_IMAGE =
   "https://images.unsplash.com/photo-1510915361894-db8b60106cb1?auto=format&fit=crop&w=2000&q=80";
 
 export default function HomePage() {
+  const preview = isCatalogPreview();
   return (
     <div>
       <section className="relative isolate min-h-[78vh] overflow-hidden">
         <Image
-          src={HERO_IMAGE}
+          src={preview ? "/preview/guitar-7.jpg" : HERO_IMAGE}
           alt="Vintage electric guitar in warm stage light"
           fill
           priority
@@ -25,8 +27,9 @@ export default function HomePage() {
             Find your sound. Know its story.
           </h1>
           <p className="mt-5 max-w-xl text-base leading-7 text-muted sm:text-lg">
-            ToneVault grades high-end instruments, documents provenance, and holds funds in escrow until
-            the guitar in your hands matches the guitar on the page.
+            {preview
+              ? "Explore the ToneVault customer experience with sample instruments. Inventory, verification grades and photographs are illustrative; no orders or payments are saved."
+              : "ToneVault grades high-end instruments, documents provenance, and holds funds in escrow until the guitar in your hands matches the guitar on the page."}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
@@ -56,7 +59,7 @@ export default function HomePage() {
         />
         <ValueCard
           title="Protect"
-          copy="Payment sits in escrow through shipment and delivery. Funds release only after you approve the instrument."
+          copy={preview ? "This is a read-only local preview. Cart items are not reserved, checkout is unavailable, and no payment is taken." : "Payment sits in escrow through shipment and delivery. Funds release only after you approve the instrument."}
         />
       </section>
 
