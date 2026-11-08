@@ -1,6 +1,6 @@
 # Member 3 checkout integration
 
-This branch depends on `g2/m3-order-backend` (#37). The route is `/checkout`; it uses the existing cart context, signs in/registers through the existing Supabase client and submits one product at a time with a buyer access token. Optional `?product=<id>` selects a product already in the cart. Contact/shipping and simulated payment fields are validated by the backend. Pricing preview loads `/api/checkout/pricing`; the database calculates final prices.
+This branch (#38) depends on `g2/m3-order-backend` (#37). The route is `/checkout`; it uses the existing cart context, signs in/registers through the existing Supabase client and submits one product at a time with a buyer access token. Optional `?product=<id>` selects a product already in the cart. Contact/shipping and simulated payment fields are validated by the backend. Pricing preview loads `/api/checkout/pricing`; the database calculates final prices.
 
 The separate Confirmation PR supplies `/orders/:id`, the successful submission destination. Merge the whole reviewed stack before deploying a public end-to-end flow.
 
