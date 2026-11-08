@@ -1,4 +1,4 @@
-# ToneVault Member 4 Revenue Design
+# ToneVault GC2 revenue pricing design
 
 Date: 2026-11-08 (Asia/Manila)  
 Owner: Member 4  
