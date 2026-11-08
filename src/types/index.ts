@@ -114,3 +114,24 @@ export type ActionResult<T> =
       code: CatalogErrorCode;
       issues?: { path: string; message: string }[];
     };
+
+export type CheckoutDetails = {
+  order_id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  address: string;
+  payment_method: "simulated_card" | "simulated_gcash";
+};
+
+export type OrderPricing = {
+  order_id: string;
+  merchandise_amount: number;
+  commission_rate: number;
+  inspection_fee: number;
+  inspection_status: "not_requested" | "pending" | "completed";
+  commission_amount: number;
+  seller_proceeds: number;
+  buyer_total: number;
+};
+export type CheckoutPricingRules = { commission_rate: number; physical_inspection_fee: number };
