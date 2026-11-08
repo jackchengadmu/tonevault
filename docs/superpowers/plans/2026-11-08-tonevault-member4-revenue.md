@@ -739,7 +739,7 @@ Document that the simulated owner request is to change the active 8% rate; the o
 Append:
 
 ```md
-| 2026-11-08 (Asia/Manila) | Member 4 / jackchengadmu | Codex | Design and implement commission, verification pricing, persistence, tests and Member 4 documentation | Kept the GC1 8%, ₱2,800 and ₱8,500 rules; used one active rules file, centavo math, server catalog prices and an atomic RPC; left payment/auth and other members' branches unchanged | `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`, `git diff --check`; human review and deployed evidence remain separate |
+| 2026-11-08 (Asia/Manila) | Member 4 / jackchengadmu | Codex | Draft and edit pricing code, tests, and documentation | Used the group's approved pricing values and kept the work on Member 4 branches | Tests, typecheck, changed-file lint, and the production build passed; human review and deployed testing remain pending |
 ```
 
 Adjust the final check list only to commands actually run.
