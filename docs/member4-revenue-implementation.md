@@ -1,7 +1,9 @@
 # ToneVault GC2 revenue pricing implementation
 
-Date: 2026-11-08 (Asia/Manila)  
-Owner: Member 4  
+Date: 2026-11-08 (Asia/Manila)
+
+Owner: Member 4
+
 Repository: `perez234910/tonevault`
 
 ToneVault uses two revenue features from the GC1 business model: an 8% marketplace commission and an optional verification add-on. The server calculates both features from the current catalog price, and an order stores the resulting pricing breakdown. Payment remains simulated for GC2.
