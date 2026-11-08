@@ -67,13 +67,21 @@ async function run(engine, width, reduced = false) {
       await openMenu.tap(); await menu.getByRole("link", { name: "Verified", exact: true }).tap(); await closed(); await page.waitForURL(/verificationStatus=/);
     }
 
-    // Synthetic two-view fixture exercises gallery keyboard/motion, not extra claimed listing photos.
+    // Two explicit synthetic slots reuse one valid local asset to test gallery interaction.
+    // They are not extra claimed listing photographs; local query strings are intentionally restricted.
     await page.route(`**/api/products/${productPath.split('/').at(-1)}`, async (route) => {
       const response = await route.fetch(); const body = await response.json();
-      body.data.images = ["/guitars/prs-custom24.jpg", "/guitars/prs-custom24.jpg?gallery-test=2"];
+      assert.equal(response.status(), 200, "Synthetic gallery requires a successful underlying sample detail response");
+      assert.equal(body.data?.model, "Custom 24");
+      body.data.images = ["/guitars/prs-custom24.jpg", "/guitars/prs-custom24.jpg"];
       await route.fulfill({json:body});
     });
-    await page.goto(`${base}${productPath}`); await page.getByRole("heading", { name: title, exact: true }).waitFor();
+    await page.goto(`${base}${productPath}`);
+    try { await page.getByRole("heading", { name: title, exact: true }).waitFor(); }
+    catch (error) {
+      console.log("Gallery fixture failure", { engine, width, reduced, headings: await page.locator("main h1").allTextContents(), errors, consoleErrors });
+      throw error;
+    }
     await page.getByRole("button", { name: `Show photo 1 of ${title}`, exact: true }).focus();
     await page.keyboard.press("ArrowRight");
     const thumbnail = page.getByRole("button", { name: `Show photo 2 of ${title}`, exact: true }); assert.equal(await thumbnail.getAttribute("aria-pressed"), "true");
@@ -88,23 +96,37 @@ async function run(engine, width, reduced = false) {
     assert.equal(toast.x < action.x + action.width && toast.x + toast.width > action.x && toast.y < action.y + action.height && toast.y + toast.height > action.y, false, "Toast covers essential Add action");
     await page.getByRole("button", { name: "Dismiss cart confirmation", exact: true }).click();
     const cart = page.locator(".cart-trigger");
-    const before = await page.evaluate(() => ({ x: document.documentElement.clientWidth, y: scrollY, overflow: document.documentElement.style.overflow }));
+    const viewport = () => page.evaluate(() => ({ x: document.documentElement.clientWidth, y: scrollY, overflow: document.documentElement.style.overflow,
+      mainTop: document.querySelector("main").getBoundingClientRect().top,
+      headerTop: document.querySelector("header").getBoundingClientRect().top,
+      body: Object.fromEntries(["position", "top", "left", "width", "overflow"].map(property => [property, document.body.style[property]])),
+    }));
+    const before = await viewport();
     await cart.click(); const drawer = page.getByRole("dialog", { name: /Your cart/ }); await drawer.waitFor();
     const close = drawer.getByRole("button", { name: "Close cart preview", exact: true }); assert.equal(await close.evaluate((node) => node === document.activeElement), true);
-    const locked = await page.evaluate(() => ({ x: document.documentElement.clientWidth, y: scrollY, overflow: document.documentElement.style.overflow }));
-    assert.equal(locked.x, before.x); assert.equal(locked.y, before.y); assert.equal(locked.overflow, "hidden");
-    await page.mouse.wheel(0, 500); assert.equal(await page.evaluate(() => scrollY), before.y);
+    const locked = await viewport();
+    assert.equal(locked.x, before.x); assert.equal(locked.overflow, "hidden");
+    assert.equal(locked.body.position, "fixed");
+    assert.ok(Math.abs(locked.mainTop - before.mainTop) < .5, "Opening dialog moved the visible background");
+    assert.ok(Math.abs(locked.headerTop - before.headerTop) < .5, "Opening dialog moved the header");
+    await page.mouse.wheel(0, 500);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const afterWheel = await viewport();
+    assert.equal(afterWheel.y, locked.y); assert.equal(afterWheel.mainTop, locked.mainTop);
     for (let i = 0; i < 12; i++) { await page.keyboard.press("Tab"); assert.equal(await drawer.evaluate((node) => node.contains(document.activeElement)), true); }
     await close.focus(); await page.keyboard.press("Shift+Tab"); assert.equal(await drawer.evaluate((node) => node.contains(document.activeElement)), true);
     await drawer.getByRole("button", { name: `Increase quantity for ${title} in quick cart`, exact: true }).click();
     await wait(page, () => document.querySelector(".cart-count")?.textContent === "2");
     await noOverflow(); await shot("drawer"); await page.keyboard.press("Escape"); await closed();
     await wait(page, () => document.activeElement === document.querySelector(".cart-trigger"));
-    assert.equal(await page.evaluate(() => document.documentElement.style.overflow), before.overflow);
+    const restored = await viewport();
+    assert.equal(restored.overflow, before.overflow); assert.deepEqual(restored.body, before.body);
+    assert.ok(Math.abs(restored.y - before.y) < .5, "Dismissal did not restore the original scroll position");
     const cartTwo = page.getByRole("button", { name: "Open cart, 2 instruments", exact: true });
     await cartTwo.click(); await drawer.waitFor();
     if (width >= 1024) { await page.mouse.click(20, 160); await closed(); await cartTwo.click(); await drawer.waitFor(); }
     await drawer.getByRole("link", { name: "Review cart", exact: true }).click(); await closed(); await page.waitForURL(`${base}/cart`);
+    await wait(page, () => scrollY === 0);
     const quantity = page.getByRole("spinbutton", { name: `Quantity for ${title}`, exact: true }); await quantity.waitFor(); assert.equal(await quantity.inputValue(), "2");
     await page.reload(); await quantity.waitFor(); assert.equal(await quantity.inputValue(), "2");
     await page.getByRole("button", { name: `Increase quantity for ${title}`, exact: true }).click();
