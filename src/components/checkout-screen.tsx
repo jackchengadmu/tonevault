@@ -26,6 +26,8 @@ const issueFields: Record<string, readonly [keyof CheckoutDraft, number]> = {
   payment_method: ["payment", 2], payment_confirmed: ["paymentConfirmed", 2],
 };
 
+const quoteUnavailable = "Unable to load pricing. Please try again.";
+
 const steps = ["Contact", "Shipping", "Payment", "Review"];
 const initialDraft: CheckoutDraft = { email: "", fullName: "", street: "", city: "", postalCode: "", payment: "", phone: "", paymentConfirmed: false };
 
@@ -62,14 +64,20 @@ export function CheckoutScreen({ initialProductId }: { initialProductId: string 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ product_id: productId, quantity, verification_option: verification }),
         });
+        if (!response.ok) {
+          const error = response.status === 409 ? "This instrument is no longer available in the requested quantity."
+            : response.status === 404 ? "This instrument is no longer available."
+            : quoteUnavailable;
+          if (!controller.signal.aborted) setQuote({ key: quoteKey, error });
+          return;
+        }
         const result = await response.json();
-        if (!response.ok || !result.ok) throw new Error(result.error ?? "Unable to refresh the order quote.");
-        if (result.data.product_id !== productId || result.data.quantity !== quantity || result.data.pricing.verification_option !== verification) {
-          throw new Error("The quote does not match this selection.");
+        if (!result?.ok || result.data?.product_id !== productId || result.data?.quantity !== quantity || result.data?.pricing?.verification_option !== verification) {
+          throw new Error(quoteUnavailable);
         }
         if (!controller.signal.aborted) setQuote({ key: quoteKey, value: result.data });
-      } catch (error) {
-        if (!controller.signal.aborted) setQuote({ key: quoteKey, error: error instanceof Error ? error.message : "Unable to load pricing." });
+      } catch {
+        if (!controller.signal.aborted) setQuote({ key: quoteKey, error: quoteUnavailable });
       }
     }
     void loadQuote();
