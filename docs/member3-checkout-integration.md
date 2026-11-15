@@ -1,13 +1,13 @@
 # Member 3 checkout integration
 
-This branch depends on `g2/m3-order-backend` (#37). The route is `/checkout`; it uses the existing cart context, submits guest orders by default, with optional sign-in/registration through the existing Supabase client. Optional `?product=<id>` selects a product already in the cart. Contact/shipping and simulated payment fields are validated by the backend. Pricing preview loads `POST /api/pricing/quote`; the database calculates final prices.
+PR #38 wires the four-step checkout from Member 2’s #29 to Member 4’s quote endpoint and Member 3’s order API. Each checkout submits all units in one selected cart line. Other lines stay in the cart. After a successful save, checkout subtracts the purchased units from the current cart and opens `/confirmation/:id`, which uses the protected read endpoint from #39.
 
-The separate Confirmation PR supplies `/orders/:id`, the successful submission destination. Merge the whole reviewed stack before deploying a public end-to-end flow.
+Checkout collects a phone number and sends street, city, postal code and country as a single delivery address. It supports simulated card and GCash payments with explicit acknowledgement. Verification is selected in Review. The order API computes its own total. If it differs from the buyer’s reviewed total, the API returns 409 before writing and checkout refreshes the quote for review.
 
-Member 2's unmerged UI PR #29 also defines `/checkout`, and their latest cart context may have different quantity/readiness APIs. This PR is based on current main's cart shape. It does not replace or edit their code. Before merging both workstreams, the team must select the customer UI and wire it to the guest-or-account backend contract rather than retain two competing page definitions. A multi-product cart is not submitted as a pretend atomic multi-order batch.
+Guest checkout is the default. Optional account checkout sends a verified buyer token. Guests receive a private per-order confirmation cookie. Checkout and confirmation need the full reviewed stack for an end-to-end deployment.
 
-Actual Supabase sign-up, email confirmation, buyer sessions and mobile/browser checkout remain unverified; test with an authorized non-production account after reviewed migrations are applied. Payments are simulated and no credentials belong in source.
+## Database order
 
-GC2 revision (November 9): customer login is optional. The default flow sends customer/shipping fields without a token and receives a private order-specific confirmation cookie. Optional account UI is loaded only when requested; guests do not need Supabase Auth or a public Auth key to complete checkout. Signed-in requests still send a verified buyer token. The new additive optional-buyer migration must be reviewed/applied too. Owner-screen authentication is a separate Member 5 responsibility.
+Apply `20261108081033_add_revenue_pricing.sql` before `20261109063222_member3_checkout_details.sql`. The latter keeps Member 4’s price checks and stored snapshot and changes the buyer existence check to permit guests. Apply the order-write restriction migration from #39 last. Coordinate the rollout with the replacement application because the pricing migration removes the legacy three-argument order function.
 
-Member 4 integration revision: use their PRs #40/#41/#42 first. Verification choices are `none`, `remote`, `physical`; no local pricing constants or arithmetic set fees/totals. Each selected instrument/service requests Member 4's quote. Order creation independently requotes server-side and persists their pricing snapshot. Member 3 keeps customer details, simulated payment and optional account/guest access only.
+Seller tracking writes are outside GC2 checkout. Order writes go through the server, and adding tracking updates requires an authorized server endpoint.

@@ -1,11 +1,15 @@
 import { Suspense } from "react";
-import { Checkout } from "@/src/components/checkout";
+import { CheckoutScreen } from "@/src/components/checkout-screen";
 
-type Props = { searchParams: Promise<{ product?: string }> };
-async function CheckoutContent({ searchParams }: Props) {
+export const metadata = { title: "Checkout" };
+
+async function CheckoutSelection({ searchParams }: Pick<PageProps<"/checkout">, "searchParams">) {
   const { product } = await searchParams;
-  return <Checkout productId={typeof product === "string" ? product : ""} />;
+  return <CheckoutScreen initialProductId={typeof product === "string" ? product : ""} />;
 }
-export default function CheckoutPage(props: Props) {
-  return <Suspense fallback={<p role="status" className="p-8">Loading checkout…</p>}><CheckoutContent {...props} /></Suspense>;
+
+export default function CheckoutPage({ searchParams }: PageProps<"/checkout">) {
+  return <Suspense fallback={<p role="status" className="p-8">Loading checkout…</p>}>
+    <CheckoutSelection searchParams={searchParams} />
+  </Suspense>;
 }

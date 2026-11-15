@@ -2,6 +2,7 @@ import { z } from "zod";
 import { pricingQuoteSchema } from "./catalog";
 
 export const checkoutOrderSchema = pricingQuoteSchema.extend({
+  expected_total_amount: z.number().nonnegative().optional(),
   customer: z.object({
     full_name: z.string().trim().min(2).max(120),
     email: z.string().trim().email().max(254),
