@@ -1,17 +1,18 @@
 # Route contract
 
-Source audit: November 8, 2026; base `6112d47080760c10728cd416581ff16710bf4417`. “Implemented” means a handler exists in source, not that deployment or database access was verified. Proposed documentation requires team review.
+Contract for the integrated checkout in PRs #37–#39. “Implemented” describes the code on the integration branch. Shared deployment requires the pricing and checkout migrations.
 
 | Core endpoint | State | Handler | Responses |
 | --- | --- | --- | --- |
 | `GET /api/products` | Implemented | `app/api/products/route.ts` → `queryProducts` | 200 including empty; 400 invalid filters; 500 query failure |
 | `GET /api/products/:id` | Implemented | `app/api/products/[id]/route.ts` → `queryProductById` | 200; 404 invalid/missing UUID or absent product; 500 query failure |
-| `POST /api/orders` | Implemented (single product) | `app/api/orders/route.ts` → `placeCatalogOrder` | 201; 400 invalid JSON/fields/quantity; 403 self-purchase; 404 missing product/buyer; 409 sold/insufficient stock; 500 query failure |
-| `GET /api/orders/:id` | Planned — Member 3 | No handler | Required 200/404; shape/authentication needs agreement |
+| `POST /api/orders` | Implemented (one cart line) | `app/api/orders/route.ts` → `placeCheckoutOrder` | 201 saved; 400 invalid input; 401 invalid login or unauthenticated legacy request; 403 self-purchase or read-only preview; 404 missing product/buyer; 409 stock or price conflict; 500 save failure |
+| `GET /api/orders/:id` | Implemented — Member 3 | `app/api/orders/[id]/route.ts` | 200 accessible saved order; 401 missing access or invalid login; 404 invalid ID, missing order or order outside the caller’s access; 500 lookup failure |
+| `POST /api/pricing/quote` | Implemented — Member 4 | `app/api/pricing/quote/route.ts` | 200 quote; 400 invalid input; 404 missing product; 409 insufficient stock |
 | `GET /api/orders` | Planned — Member 3 | No GET export | Required 200 list including empty; shape/authentication needs agreement |
 | `GET /api/metrics` | Planned — Member 5 | No handler | Required 200; calculations/shape/owner access need agreement |
 
-Catalog/Detail/Order functions and validation: `src/lib/catalog/queries.ts`, `src/lib/validators/catalog.ts`. Status mapping: `src/lib/catalog/http.ts`. Missing server environment configuration currently throws outside the result envelope; do not claim all configuration failures return the JSON below. API authentication for orders needs Member 3 review: the existing handler accepts browser-supplied `buyer_id` and uses a service-role RPC.
+Catalog/Detail/Order functions and validation: `src/lib/catalog/queries.ts`, `src/lib/validators/catalog.ts`. Status mapping: `src/lib/catalog/http.ts`. Missing server environment configuration currently throws outside the result envelope; do not claim all configuration failures return the JSON below. Checkout derives buyer identity from a verified session. Guest orders have a null buyer ID.
 
 ## Product list
 
@@ -34,21 +35,33 @@ Malformed and absent product IDs return `{ "ok": false, "code": "NOT_FOUND", "er
 
 ## Create order — simulated payment only
 
-Request JSON template (replace placeholder IDs with authorized test records):
+Send `Content-Type: application/json`. For account checkout, add `Authorization: Bearer <buyer access token>`. Omit the authorization header for a guest order.
 
 ```json
 {
   "product_id": "<product UUID>",
-  "buyer_id": "<test buyer UUID>",
-  "quantity": 1
+  "quantity": 1,
+  "verification_option": "none",
+  "customer": {
+    "full_name": "Test Buyer",
+    "email": "buyer@example.invalid",
+    "phone": "09123456789",
+    "address": "123 Test Street, Quezon City, 1100, Philippines"
+  },
+  "payment_method": "simulated_card",
+  "payment_confirmed": true
 }
 ```
 
-Both IDs are required valid UUIDs. Quantity is required and must be a positive integer; numeric strings are coerced. Unknown fields, including browser totals, are stripped by Zod. Server/DB computes `price × quantity`. Success (201) shape: `{ "ok": true, "data": { "order": Order, "listing_status": "available" | "sold" } }`. `Order` contains `id`, `product_id`, `buyer_id`, `quantity`, `total_amount`, `escrow_status`, `tracking_number`, `created_at`; RPC sets `escrow_status: "pending"`. No payment provider is contacted.
+Quantity must be a positive integer. Verification accepts `none`, `remote`, or `physical`. Payment accepts `simulated_card` or `simulated_gcash`. To check the price the buyer reviewed, include the quote’s `total_amount` as `expected_total_amount`. A mismatch returns 409 before saving. The server calculates the saved price and ignores browser-supplied `buyer_id`, `total`, and `total_amount`.
 
-Error shape: `{ "ok": false, "code": CatalogErrorCode, "error": string, "issues"?: [{ "path": string, "message": string }] }`. See table for statuses. The RPC locks the product, checks buyer/self-purchase/stock, inserts the order and decrements stock atomically. POST consumes stock. Never run it against production without explicit approval.
+Checkout returns 201 with `{ "ok": true, "data": { "order": Order } }`. The transaction saves the price breakdown and checkout details and decrements stock. Guest checkout sets an order-specific HttpOnly cookie. Use an authorized test database for stock-consuming Postman requests.
 
-Multi-product orders, GET order responses and metrics shapes are **not defined by this documentation**. File/review a `Contract change: ...` issue before implementing them; Member 3 owns checkout/order decisions and Member 5 metrics.
+### Read a saved order
+
+`GET /api/orders/:id` accepts the guest browser’s order cookie or the verified buyer’s bearer token. Responses are private and uncached. Success returns `{ "ok": true, "data": { "order": Order } }` with saved pricing and order status. Private checkout details and the guest token hash are excluded. Use `/confirmation/:id` for the customer page.
+
+See [Member 3 checkout and order details](member3-orders.md) for the complete pricing and response contract.
 
 ## Screens
 
@@ -57,7 +70,7 @@ Multi-product orders, GET order responses and metrics shapes are **not defined b
 | `/` | Implemented Home — Member 1; featured collection still uses server action |
 | `/browse` | Implemented; separate unmerged PR #18 uses Fetch → validate/transform → render `/api/products` JSON — Member 1 repair authored by Member 2 |
 | `/products/[id]` | Implemented action-based Detail; own-API and state UX work pending — Member 2 |
-| `/cart` | Missing — Member 2; waits for reviewed cart-state interface |
-| `/checkout` | Missing — Member 3 |
-| Confirmation route | Missing; final route name must be agreed — Member 3 |
-| Owner route | Missing; final route name must be agreed — Member 5 |
+| `/cart` | Cart with quantity and stock controls |
+| `/checkout` | Four-step guest or account checkout |
+| `/confirmation` and `/confirmation/:id` | Order lookup and protected confirmation |
+| `/owner` | Owner interface; live data integration is separate |

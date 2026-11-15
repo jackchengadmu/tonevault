@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isCatalogPreview } from "@/src/lib/catalog/preview-mode";
 import { createOrderAccess, GUEST_ORDER_ACCESS_SECONDS } from "@/src/lib/catalog/order-access";
 import { placeCatalogOrder } from "@/src/lib/catalog/queries";
 import { placeCheckoutOrder } from "@/src/lib/catalog/checkout-orders";
@@ -8,6 +9,12 @@ import { revalidateTag } from "next/cache";
 import type { Order } from "@/src/types";
 
 export async function POST(request: Request) {
+  if (isCatalogPreview()) {
+    return Response.json(
+      { ok: false, code: "FORBIDDEN", error: "Sample preview is read-only. Orders are not saved and no payment is taken." },
+      { status: 403 },
+    );
+  }
   let payload: unknown;
   try {
     payload = await request.json();
