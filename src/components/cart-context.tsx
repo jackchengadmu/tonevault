@@ -1,118 +1,57 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
-
-export type CartItem = {
-  id: string;
-  title: string;
-  price: number;
-  image: string | null;
-  finish: string | null;
-};
+import { createContext, useCallback, useContext, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { cartTotals, type CartProduct } from "@/src/lib/cart";
+import { createCartStore } from "@/src/lib/cart-store";
+export type { CartItem } from "@/src/lib/cart";
 
 type CartContextValue = {
-  items: CartItem[];
+  store: ReturnType<typeof createCartStore>;
   isOpen: boolean;
-  addItem: (item: CartItem) => void;
+  addItem: (item: CartProduct) => boolean;
+  setQuantity: (id: string, quantity: number) => void;
+  clearCart: () => void;
   removeItem: (id: string) => void;
+  feedback: { id: number; message: string } | null;
+  feedbackVisible: boolean;
+  dismissFeedback: () => void;
   openCart: () => void;
   closeCart: () => void;
   toggleCart: () => void;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
-const STORAGE_KEY = "tonevault-cart";
-const EMPTY_CART: CartItem[] = [];
+const serverHydrationSnapshot = () => false;
 
-function readStoredItems(): CartItem[] {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as CartItem[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function createCartStore() {
-  let items: CartItem[] | undefined;
-  const listeners = new Set<() => void>();
-
-  return {
-    getSnapshot: () => items ?? EMPTY_CART,
-    getServerSnapshot: () => EMPTY_CART,
-    subscribe(listener: () => void) {
-      items ??= readStoredItems();
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
-    update(change: (current: CartItem[]) => CartItem[]) {
-      items = change(items ?? readStoredItems());
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-      } catch {
-        // The cart can still work in this tab when storage is unavailable.
-      }
-      listeners.forEach((listener) => listener());
-    },
-  };
-}
-
-export function CartProvider({ children }: { children: ReactNode }) {
-  const [store] = useState(createCartStore);
-  const items = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
+export function CartProvider({ children, storageKey }: { children: ReactNode; storageKey?: string }) {
+  const [store] = useState(() => createCartStore(() => window.localStorage, storageKey));
   const [isOpen, setIsOpen] = useState(false);
-
-  const addItem = useCallback(
-    (item: CartItem) => {
-      store.update((current) =>
-        current.some((existing) => existing.id === item.id) ? current : [...current, item],
-      );
-      setIsOpen(true);
-    },
-    [store],
-  );
-
-  const removeItem = useCallback(
-    (id: string) => {
-      store.update((current) => current.filter((item) => item.id !== id));
-    },
-    [store],
-  );
-
-  const value = useMemo(
-    () => ({
-      items,
-      isOpen,
-      addItem,
-      removeItem,
-      openCart: () => setIsOpen(true),
-      closeCart: () => setIsOpen(false),
-      toggleCart: () => setIsOpen((open) => !open),
-    }),
-    [addItem, isOpen, items, removeItem],
-  );
-
+  const [feedback, setFeedback] = useState<{ id: number; message: string } | null>(null);
+  const [feedbackVisible, setFeedbackVisible] = useState(false);
+  const dismissFeedback = useCallback(() => setFeedbackVisible(false), []);
+  const addItem = useCallback((item: CartProduct) => {
+    const added = store.addItem(item);
+    if (added) {
+      setFeedback((previous) => ({ id: (previous?.id ?? 0) + 1, message: `Added ${item.title} to your cart.` }));
+      setFeedbackVisible(true);
+    }
+    return added;
+  }, [store]);
+  const value = useMemo(() => ({
+    store, isOpen, addItem, removeItem: store.removeItem, setQuantity: store.setQuantity,
+    clearCart: store.clearCart, feedback, feedbackVisible, dismissFeedback,
+    openCart: () => setIsOpen(true), closeCart: () => setIsOpen(false), toggleCart: () => setIsOpen((open) => !open),
+  }), [addItem, dismissFeedback, feedback, feedbackVisible, isOpen, store]);
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
 export function useCart() {
   const context = useContext(CartContext);
-  if (!context) {
-    throw new Error("useCart must be used within CartProvider");
-  }
-  return context;
+  if (!context) throw new Error("useCart must be used within CartProvider");
+  const { store, ...actions } = context;
+  // Each consumer needs its own server snapshot when hydrating a Suspense boundary.
+  const items = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
+  const hydrated = useSyncExternalStore(store.subscribe, store.isHydrated, serverHydrationSnapshot);
+  const totals = useMemo(() => cartTotals(items), [items]);
+  return { ...actions, removePurchasedQuantity: store.removePurchasedQuantity, items, hydrated, totalQuantity: totals.quantity, subtotal: totals.subtotal };
 }

@@ -1,11 +1,13 @@
 import { Suspense } from "react";
-import { OrderConfirmation } from "@/src/components/order-confirmation";
+import { redirect } from "next/navigation";
 
-type Props = { params: Promise<{ id: string }> };
-async function OrderContent({ params }: Props) {
+async function OrderRedirect({ params }: Pick<PageProps<"/orders/[id]">, "params">) {
   const { id } = await params;
-  return <OrderConfirmation key={id} id={id} />;
+  return redirect(`/confirmation/${encodeURIComponent(id)}`);
 }
-export default function OrderPage(props: Props) {
-  return <Suspense fallback={<p role="status" className="p-8">Loading confirmation…</p>}><OrderContent {...props} /></Suspense>;
+
+export default function LegacyOrderPage({ params }: PageProps<"/orders/[id]">) {
+  return <Suspense fallback={<p role="status" className="p-8">Opening confirmation…</p>}>
+    <OrderRedirect params={params} />
+  </Suspense>;
 }

@@ -17,6 +17,7 @@ Guest checkout defaults to no login. Optional accounts use Supabase Auth. A gues
   "product_id": "<available product UUID>",
   "quantity": 1,
   "verification_option": "remote",
+  "expected_total_amount": 487800,
   "customer": {
     "full_name": "Test Buyer",
     "email": "test@example.com",
@@ -30,7 +31,7 @@ Guest checkout defaults to no login. Optional accounts use Supabase Auth. A gues
 
 `verification_option` follows Member 4 exactly: `none`, `remote`, `physical`, default `none`. The retired `inspection_requested` field is not used. Client money and buyer IDs cannot set saved values. Payment methods are `simulated_card`/`simulated_gcash`; no real card fields, payment, escrow transfer, refund or payout is performed.
 
-Checkout POSTs product/quantity/verification to `/api/pricing/quote` and renders that server response, with loading, retryable error and empty-cart states. Switching product/service invalidates the displayed quote; aborted/stale selections cannot enable submission. POST /api/orders independently invokes Member 4's `quoteCatalogPricing`, then passes its scalar snapshot to the atomic details RPC. The quote is read-only and does not reserve stock.
+Checkout POSTs product/quantity/verification to `/api/pricing/quote` and renders that server response, with loading, retryable error and empty-cart states. Switching product/service invalidates the displayed quote; aborted/stale selections cannot enable submission. POST /api/orders independently invokes Member 4's `quoteCatalogPricing`, then passes its scalar snapshot to the atomic details RPC. The optional `expected_total_amount` checks the buyer’s reviewed total against the latest server quote. A mismatch returns 409 before saving. The quote is read-only and does not reserve stock.
 
 ## Saved pricing contract
 
@@ -52,7 +53,7 @@ These are worked examples, not a second source of active rules. Stored revenue f
 - `POST /api/orders` (Member 3): 201 saved order; 400 invalid fields/quantity; 401 invalid supplied login or legacy no-customer request without login; 403 self-purchase; 404 unknown product/profile; 409 unavailable stock or stale catalog price; 500 save/configuration failure. Customer details are required for guest checkout. Optional account identity is verified server-side.
 - `GET /api/orders/:id` (Member 3): 200 saved order in `{ok:true,data:{order}}`; 401 missing access; 404 invalid/missing order, wrong guest credential or other buyer; 500 server/configuration failure. All order responses are private/no-store.
 
-Guest confirmation uses an exact-order HttpOnly/SameSite=Strict cookie, Secure on HTTPS, valid seven days. Raw random access tokens never appear in JSON, URLs or JavaScript storage; only the hash is stored. Losing the cookie loses guest access; no recovery-email feature is implemented. Account confirmation requires the buyer's token. Private contact fields and guest hashes are not returned.
+Guest confirmation uses an exact-order HttpOnly/SameSite=Strict cookie, Secure on HTTPS, valid seven days. Raw random access tokens never appear in JSON, URLs or JavaScript storage; only the hash is stored. Losing the cookie loses guest access; no recovery-email feature is implemented. Confirmation at `/confirmation/:id` tries the guest cookie first. If the endpoint requires authentication, confirmation reads the existing Supabase session and retries with the buyer's token. Private contact fields and guest hashes are not returned.
 
 ## Architecture and file/function trace
 
@@ -73,9 +74,9 @@ flowchart LR
  I --> F
 ```
 
-Files: `src/components/checkout.tsx` submit handler → `app/api/orders/route.ts` → `src/lib/validators/checkout-order.ts` / `src/lib/catalog/checkout-orders.ts` → Member 4 `src/lib/pricing/catalog.ts` (`quoteCatalogPricing`) → Member 4 `src/lib/pricing/calculate.ts` / `rules.ts` → `place_checkout_order` → Member 4 `place_catalog_order` → private details insert → 201/cookie → `src/components/order-confirmation.tsx` → `app/api/orders/[id]/route.ts` → saved order rendering. Optional authentication uses `src/components/buyer-account.tsx`; guest checkout is not gated by Auth.
+Files: `src/components/checkout-screen.tsx` submit handler → `app/api/orders/route.ts` → `src/lib/validators/checkout-order.ts` / `src/lib/catalog/checkout-orders.ts` → Member 4 `src/lib/pricing/catalog.ts` (`quoteCatalogPricing`) → Member 4 `src/lib/pricing/calculate.ts` / `rules.ts` → `place_checkout_order` → Member 4 `place_catalog_order` → private details insert → 201/cookie → `src/components/confirmation-screen.tsx` → `app/api/orders/[id]/route.ts` → saved order rendering. Optional authentication uses `src/components/buyer-account.tsx`; guest checkout is not gated by Auth.
 
-## Local verification
+## Earlier local verification
 
 - `npm test`: all 23 tests passed, including Member 4's calculator/catalog/quote/schema tests and Member 3's customer validation, guest credentials and ownership checks.
 - TypeScript and changed-file ESLint passed.
@@ -85,10 +86,10 @@ Files: `src/components/checkout.tsx` submit handler → `app/api/orders/route.ts
 
 Fresh configured production build passed. Actual local desktop-browser guest flow passed: add a disposable PHP168,000 instrument, choose remote verification, observe fee2800/total170800, submit simulated customer/payment details, and reload the saved confirmation. No browser Console errors were captured. Evidence: `member3-member4-confirmation-local.png`.
 
-Real Supabase Auth/email, phone-width usability, deployed checks and Challenge 2 evidence remain pending. Full lint still has the existing state-in-effect error in untouched cart-context. Local tests and synthetic fixtures do not replace deployed evidence.
+Real Supabase Auth/email, phone-width usability, deployed checks and Challenge 2 evidence remain pending. Local tests and synthetic fixtures do not replace deployed evidence.
 
 ## Team handoff
 
-Member 2's unmerged #29/#31 overlap checkout/confirmation UI; choose/integrate the UI before merging both workstreams. Member 5 must count guest orders without requiring a users inner join and use Member 4's saved pricing fields. Owner-screen no-login work remains Member 5's responsibility. No cart, product or owner-screen code was changed here.
+Checkout and confirmation use Member 2’s interfaces from #29 and #31. Member 5 must count guest orders without requiring a users inner join and use Member 4's saved pricing fields. Owner-screen no-login work remains Member 5's responsibility.
 
-After review: apply the approved Member 4 migration followed by the new Member 3 details migration, configure private environment values, deploy, test the flow and capture Challenge 2 Network data and actual file/function hops. The hand-drawn diagram, human reviews, three merged code PRs and individual Challenge 5 recording remain required. Optional duplicate-request protection/rate limiting is not implemented; row locking prevents overselling.
+After review: apply the approved Member 4 migration followed by the Member 3 details migration and the order-write restriction migration, configure private environment values, deploy, test the flow and capture Challenge 2 Network data and actual file/function hops. The hand-drawn diagram, human reviews, three merged code PRs and individual Challenge 5 recording remain required. Optional duplicate-request protection/rate limiting is not implemented; row locking prevents overselling.

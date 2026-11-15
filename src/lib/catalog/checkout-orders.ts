@@ -1,9 +1,11 @@
+import { isCatalogPreview } from "./preview-mode";
 import { quoteCatalogPricing } from "@/src/lib/pricing/catalog";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { checkoutOrderSchema } from "@/src/lib/validators/checkout-order";
 import type { ActionResult, Order } from "@/src/types";
 
 export async function placeCheckoutOrder(input: unknown, buyerId: string | null, guestTokenHash: string | null = null): Promise<ActionResult<{ order: Order }>> {
+  if (isCatalogPreview()) return { ok: false, code: "FORBIDDEN", error: "Sample preview is read-only." };
   const parsed = checkoutOrderSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, code: "VALIDATION_ERROR", error: "Check your customer and simulated payment details.",
@@ -17,6 +19,9 @@ export async function placeCheckoutOrder(input: unknown, buyerId: string | null,
         ? { ok: false, code: "INTERNAL_ERROR", error: "Unable to calculate order pricing." } : quote;
     }
     const pricing = quote.data.pricing;
+    if (parsed.data.expected_total_amount !== undefined && parsed.data.expected_total_amount !== pricing.total_amount) {
+      return { ok: false, code: "CONFLICT", error: "The total changed. Review the updated quote before placing your order." };
+    }
     const { data, error } = await createAdminClient().rpc("place_checkout_order", {
       p_product_id: product_id, p_quantity: quantity, p_buyer_id: buyerId, p_full_name: customer.full_name,
       p_email: customer.email, p_phone: customer.phone, p_address: customer.address,

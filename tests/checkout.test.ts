@@ -55,6 +55,19 @@ test("checkout uses verified buyer, ignores browser total and maps stock failure
   } finally { globalThis.fetch = original; }
 });
 
+test("checkout returns a conflict before writing if the accepted quote changed", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async url => {
+    assert.match(String(url), /\/rest\/v1\/products/);
+    return Response.json([{ id: input.product_id, price: 485000, status: "available", stock: 2 }]);
+  };
+  try {
+    const result = await placeCheckoutOrder({ ...input, quantity: 2, expected_total_amount: 900000 }, buyerId);
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.code, "CONFLICT");
+  } finally { globalThis.fetch = original; }
+});
+
 test("POST rejects missing or invalid sessions before writing an order", async () => {
   const request = (token?: string) => new Request("http://localhost/api/orders", {
     method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ product_id: input.product_id, quantity: 1 }),
