@@ -3,9 +3,9 @@ export type CheckoutErrors = Partial<Record<keyof CheckoutDraft, string>>;
 export function validateCheckoutStep(step: number, draft: CheckoutDraft): CheckoutErrors {
   const errors: CheckoutErrors = {};
   if (step === 0) {
-    if (!/^[+0-9() .-]{7,30}$/.test(draft.phone.trim()) || draft.phone.replace(/\D/g, "").length < 7) errors.phone = "Enter a valid phone number.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim())) errors.email = "Enter a valid email address.";
     if (draft.fullName.trim().length < 2) errors.fullName = "Enter your full name.";
+    if (!/^[+0-9() .-]{7,30}$/.test(draft.phone.trim()) || draft.phone.replace(/\D/g, "").length < 7) errors.phone = "Enter a valid phone number.";
   }
   if (step === 1) {
     if (draft.street.trim().length < 3) errors.street = "Enter a street address.";

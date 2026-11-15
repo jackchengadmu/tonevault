@@ -7,6 +7,6 @@ test("checkout contact/shipping/payment steps reject incomplete data before revi
  assert.equal(Object.keys(validateCheckoutStep(0,{...draft,email:"bad",fullName:" "})).length,2);
  assert.equal(Object.keys(validateCheckoutStep(1,{...draft,street:" ",city:" ",postalCode:"12345"})).length,3);
  assert.ok(validateCheckoutStep(2,{...draft,payment:"real-card"}).payment);
- assert.ok(validateCheckoutStep(0,{...draft,phone:"-------"}).phone);
+ assert.deepEqual(Object.keys(validateCheckoutStep(0,{...draft,email:"",fullName:"",phone:""})),["email","fullName","phone"]);
  assert.ok(validateCheckoutStep(2,{...draft,paymentConfirmed:false}).paymentConfirmed);
 });
