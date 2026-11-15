@@ -1,8 +1,8 @@
 # ToneVault GC2 revenue pricing design
 
-Date: 2026-11-08 (Asia/Manila)  
-Owner: Member 4  
-Repository: `perez234910/tonevault`  
+Date: 2026-11-08 (Asia/Manila)\
+Owner: Member 4\
+Repository: `perez234910/tonevault`\
 Approved direction: 8% marketplace commission plus an optional verification add-on
 
 ## 1. Purpose
