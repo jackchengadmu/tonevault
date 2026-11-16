@@ -6,9 +6,9 @@ Source files, applied in filename order:
 2. `20241107143000_add_pending_escrow_status.sql` — adds enum value `pending`.
 3. `20241107143001_place_catalog_order.sql` — original two-argument service-role order RPC.
 4. `20241108003000_order_quantity_and_stock.sql` — stock/quantity columns, constraints; replaces RPC with three arguments.
-5. `20261108081033_add_revenue_pricing.sql` — unmerged Member 4 migration; adds the verification enum and order pricing snapshot, and replaces the RPC with the service-owned 12-argument pricing contract.
+5. `20261108081033_add_revenue_pricing.sql` — merged Member 4 migration; adds the verification enum and order pricing snapshot, and replaces the RPC with the service-owned 12-argument pricing contract.
 
-These filenames are not proof that a migration was applied. The Member 4 migration is committed on PR #41 but **has not been applied to the shared database**. Live schema, seeding and persistence require an authorized test environment and team review.
+PR #41 is merged. On November 16, a read-only shared-schema check found the pricing snapshot columns and the 12 required `place_catalog_order` arguments. This verifies the migration's schema effects without claiming a new order write or relying only on the filename.
 
 ## Fields and constraints
 
@@ -36,6 +36,6 @@ The Member 4 RPC is `place_catalog_order(product, buyer, quantity, verification 
 
 The function locks the product row with `FOR UPDATE`, validates positive quantity, product existence, self-purchase, buyer existence, available status and sufficient stock. It rejects a changed database price and verifies each pricing equation before inserting the snapshot, decrementing stock, and marking the listing sold at zero inside the same transaction. Historical rows are backfilled as zero-commission, no-verification snapshots so a new rule is not applied retroactively. Exceptions are mapped in `src/lib/catalog/queries.ts`; see [routes](routes.md).
 
-**Coordination note:** At the reviewed commit 3f2cd23, Member 3 PR #37 uses Member 4's pricing contract; the earlier order_pricing table/trigger and three-argument call are no longer present. Its migration re-creates place_catalog_order to allow a null buyer_id for guest checkout. Coordinate the migrations so the final function preserves pricing validation, saved pricing snapshots, atomic stock reduction and guest-checkout support. The schema above describes Member 4's migration before that integration.
+**Coordination note:** At the reviewed commit 3f2cd23, Member 3 PR #37 uses Member 4's pricing contract; the earlier order_pricing table/trigger and three-argument call are no longer present. Its later migration re-creates place_catalog_order to allow a null buyer_id for guest checkout. The shared database currently has Member 4's function. Apply Member 3's migration with the checkout rollout and verify that the final function preserves pricing validation, saved pricing snapshots, atomic stock reduction and guest-checkout support. The schema above describes the current Member 4 state before that integration.
 
 `scripts/seed.ts` defines eight demo guitars, each stock one, and ensures demo buyer/seller profiles. Re-running it **refreshes** matching listings, including stock/status/price; it is not an additive-only seed and must not be used to reset production blindly. Seeded photography/verification descriptions are demonstration data, not independent inspection evidence.

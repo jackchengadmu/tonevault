@@ -55,7 +55,7 @@ Tests and documents contain the old 8% amounts as expected results and GC2 evide
 
 ## Refactor/PR evidence
 
-[PR #40 — Add shared revenue pricing calculator](https://github.com/perez234910/tonevault/pull/40) introduces `ACTIVE_PRICING_RULES` as the single production source. PRs [#41](https://github.com/perez234910/tonevault/pull/41) and [#42](https://github.com/perez234910/tonevault/pull/42) consume it without repeating the active percentage. All are open and require human review; this document does not claim they are merged or deployed.
+[PR #40 — Add shared revenue pricing calculator](https://github.com/perez234910/tonevault/pull/40) introduces `ACTIVE_PRICING_RULES` as the single production source. PRs [#41](https://github.com/perez234910/tonevault/pull/41) and [#42](https://github.com/perez234910/tonevault/pull/42) consume it without repeating the active percentage. All three are merged after human review. The current `main` deployment succeeded and the shared database exposes the pricing snapshot fields and 12-argument order function; this challenge still does not claim that the simulated 9% owner request was actually applied.
 # Challenge 3 — Overrule the AI
 
 The first-person observations and decisions below were supplied by me after personally reviewing the interface. The Git inspections and automated checks are the agent's technical verification; they do not imply that I ran those scripts or conducted additional usability tests.

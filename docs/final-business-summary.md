@@ -44,9 +44,9 @@ Conclusion: verification adds ₱8,500 of revenue while directly supporting the 
 - One active rules file owns the commission and verification values.
 - The quote endpoint returns server-calculated unit price, subtotal, fee, commission, seller payout, platform revenue, and total.
 - The order migration stores those fields as a historical snapshot and restricts the RPC to the server service role.
-- Automated result: 17 tests passed; typecheck, changed-file lint, and production build passed.
+- Approved PR #42 result: 55/55 tests, typecheck, full lint, and a configured production build passed.
 - A read-only live catalog quote ignored a browser-supplied `total: 1` and returned the server result.
 
 ## Limits and next decision
 
-GC2 simulates payment. Saved amounts are projected revenue, not proof of cash received. The migration is not yet applied to the shared database, the pricing PRs are unmerged, and no deployed order evidence is claimed. Member 3 PR #37 contains a duplicate pricing structure; reviewers must keep Member 4's rules as the single source and adapt Member 3's authentication/contact flow to the new order contract before merging.
+GC2 simulates payment. Saved amounts are projected revenue, not proof of cash received. PRs #40–#42 are merged, the pricing schema is present on the shared database, and the current `main` deployment succeeded. Deployed Postman order evidence is still separate. Member 3 PR #37 now uses Member 4's pricing contract; its later guest-checkout migration must preserve the pricing validation and saved snapshot when that stack is rolled out.
