@@ -42,7 +42,7 @@ export function CatalogResults() {
 
   if (state.error || !state.result) {
     return (
-      <div role="alert" className="rounded-2xl border border-line bg-panel p-6 text-sm text-muted">
+      <div role="alert" className="border-y border-line bg-panel p-6 text-sm text-muted">
         <p>{state.error ?? "Unable to load the catalog."}</p>
         <button type="button" onClick={() => setAttempt((current) => current + 1)} className="mt-4 rounded-full border border-gold px-5 py-2 text-gold-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold">
           Retry catalog
@@ -53,7 +53,7 @@ export function CatalogResults() {
 
   if (state.result.products.length === 0) {
     return (
-      <p role="status" className="rounded-2xl border border-line bg-panel p-8 text-center text-muted">
+      <p role="status" className="border-y border-line bg-panel p-8 text-center text-muted">
         No instruments match these filters.
       </p>
     );
