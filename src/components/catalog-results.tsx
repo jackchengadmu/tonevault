@@ -34,7 +34,7 @@ export function CatalogResults() {
       <div role="status" aria-live="polite" aria-busy="true">
         <p className="mb-4 text-sm text-muted">Loading instruments…</p>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
-          {Array.from({ length: 6 }, (_, index) => <div key={index} className="aspect-[3/4] animate-pulse rounded-2xl bg-panel" />)}
+          {Array.from({ length: 6 }, (_, index) => <div key={index} className="aspect-[4/5] animate-pulse bg-panel" />)}
         </div>
       </div>
     );
@@ -44,7 +44,7 @@ export function CatalogResults() {
     return (
       <div role="alert" className="border-y border-line bg-panel p-6 text-sm text-muted">
         <p>{state.error ?? "Unable to load the catalog."}</p>
-        <button type="button" onClick={() => setAttempt((current) => current + 1)} className="mt-4 rounded-full border border-gold px-5 py-2 text-gold-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold">
+        <button type="button" onClick={() => setAttempt((current) => current + 1)} className="ui-button mt-4">
           Retry catalog
         </button>
       </div>
