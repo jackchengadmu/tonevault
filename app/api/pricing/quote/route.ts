@@ -17,6 +17,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await quoteCatalogPricing(payload);
-  return actionResultToResponse(result);
+  try {
+    const result = await quoteCatalogPricing(payload);
+    return actionResultToResponse(result);
+  } catch {
+    return actionResultToResponse({
+      ok: false,
+      code: "INTERNAL_ERROR",
+      error: "Unable to calculate pricing.",
+    });
+  }
 }
