@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { buyerOrderResponse } from "../src/lib/catalog/http";
+import type { Order } from "../src/types";
 import { GET } from "../app/api/orders/[id]/route";
+
+const internalFields = {
+  commission_rate_bps: 800,
+  commission_amount: 38800,
+  seller_payout_amount: 446200,
+  platform_revenue_amount: 38800,
+};
 
 const buyerId = "11111111-1111-4111-8111-111111111111";
 const orderId = "22222222-2222-4222-8222-222222222222";
@@ -19,6 +28,8 @@ test("order retrieval authenticates and scopes the database lookup to the buyer"
     }
     databaseReads++;
     assert.equal(url.pathname, "/rest/v1/orders");
+    const columns = url.searchParams.get("select")?.split(",") ?? [];
+    for (const field of Object.keys(internalFields)) assert.ok(!columns.includes(field));
     assert.equal(url.searchParams.get("id"), `eq.${orderId}`);
     assert.equal(url.searchParams.get("buyer_id"), `eq.${buyerId}`);
     return Response.json(found ? [{ id: orderId, buyer_id: buyerId, quantity: 1, subtotal_amount: 485000, verification_option: "none", verification_fee: 0, total_amount: "485000.00" }] : []);
@@ -90,4 +101,18 @@ test("guest confirmation needs its private cookie and does not expose guest deta
     assert.equal((await call(token)).status, 404);
     assert.equal(orderReads, 2);
   } finally { globalThis.fetch = original; }
+});
+
+
+test("buyer checkout response omits internal pricing while retaining saved totals", () => {
+  const order: Order = {
+    id: orderId, product_id: orderId, buyer_id: buyerId, quantity: 1,
+    unit_price: 485000, subtotal_amount: 485000, verification_option: "none",
+    verification_fee: 0, total_amount: 485000, escrow_status: "pending",
+    tracking_number: null, created_at: "2026-11-16T00:00:00Z", ...internalFields,
+  };
+  const response = buyerOrderResponse(order);
+  assert.equal(response.total_amount, order.total_amount);
+  assert.equal(response.verification_fee, order.verification_fee);
+  for (const field of Object.keys(internalFields)) assert.ok(!Object.hasOwn(response, field));
 });

@@ -59,7 +59,7 @@ Checkout returns 201 with `{ "ok": true, "data": { "order": Order } }`. The tran
 
 ### Read a saved order
 
-`GET /api/orders/:id` accepts the guest browser’s order cookie or the verified buyer’s bearer token. Responses are private and uncached. Success returns `{ "ok": true, "data": { "order": Order } }` with saved pricing and order status. Private checkout details and the guest token hash are excluded. Use `/confirmation/:id` for the customer page.
+`GET /api/orders/:id` accepts the guest browser’s order cookie or the verified buyer’s bearer token. Responses are private and uncached. Success returns `{ "ok": true, "data": { "order": Order } }` with the buyer’s saved prices and order status. The order POST and GET responses omit commission, seller payout, and platform revenue. Private checkout details and the guest token hash are excluded. Use `/confirmation/:id` for the customer page.
 
 See [Member 3 checkout and order details](member3-orders.md) for the complete pricing and response contract.
 

@@ -35,7 +35,7 @@ Checkout POSTs product/quantity/verification to `/api/pricing/quote` and renders
 
 ## Saved pricing contract
 
-Pricing comes directly from fields on Member 4's `orders` row: `unit_price`, `subtotal_amount`, `verification_option`, `verification_fee`, `commission_rate_bps`, `commission_amount`, `seller_payout_amount`, `platform_revenue_amount`, and `total_amount`. Confirmation reads these saved fields; there is no separate Member 3 pricing-table lookup. Member 4's `src/lib/pricing/rules.ts` is the source of active rates/fees. Do not introduce another rules function or copy fees into UI logic.
+Pricing comes directly from fields on Member 4's `orders` row: `unit_price`, `subtotal_amount`, `verification_option`, `verification_fee`, `commission_rate_bps`, `commission_amount`, `seller_payout_amount`, `platform_revenue_amount`, and `total_amount`. Confirmation reads the buyer’s saved prices from that row. Both customer order responses omit commission, seller payout, and platform revenue. The full breakdown remains stored server-side. Member 4's `src/lib/pricing/rules.ts` is the source of active rates/fees. Do not introduce another rules function or copy fees into UI logic.
 
 At the referenced Member 4 revision, a PHP485,000 guitar produces:
 
