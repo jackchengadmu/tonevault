@@ -8,11 +8,11 @@ Contract for the integrated checkout in PRs #37–#39. “Implemented” describ
 | `GET /api/products/:id` | Implemented | `app/api/products/[id]/route.ts` → `queryProductById` | 200; 404 invalid/missing UUID or absent product; 500 query failure |
 | `POST /api/orders` | Implemented (one cart line) | `app/api/orders/route.ts` → `placeCheckoutOrder` | 201 saved; 400 invalid input; 401 invalid login or unauthenticated legacy request; 403 self-purchase or read-only preview; 404 missing product/buyer; 409 stock or price conflict; 500 save failure |
 | `GET /api/orders/:id` | Implemented — Member 3 | `app/api/orders/[id]/route.ts` | 200 accessible saved order; 401 missing access or invalid login; 404 invalid ID, missing order or order outside the caller’s access; 500 lookup failure |
-| `POST /api/pricing/quote` | Implemented — Member 4 | `app/api/pricing/quote/route.ts` | 200 quote; 400 invalid input; 404 missing product; 409 insufficient stock |
+| `POST /api/pricing/quote` | Implemented — Member 4 | `app/api/pricing/quote/route.ts` → `quoteCatalogPricing` | 200 quote; 400 invalid JSON/fields/quantity/option; 404 missing product; 409 unavailable/insufficient stock; 500 JSON `INTERNAL_ERROR` |
 | `GET /api/orders` | Planned — Member 3 | No GET export | Required 200 list including empty; shape/authentication needs agreement |
 | `GET /api/metrics` | Planned — Member 5 | No handler | Required 200; calculations/shape/owner access need agreement |
 
-Catalog/Detail/Order functions and validation: `src/lib/catalog/queries.ts`, `src/lib/validators/catalog.ts`. Status mapping: `src/lib/catalog/http.ts`. Missing server environment configuration currently throws outside the result envelope; do not claim all configuration failures return the JSON below. Checkout derives buyer identity from a verified session. Guest orders have a null buyer ID.
+Catalog/Detail/Order functions and validation: `src/lib/catalog/queries.ts`, `src/lib/validators/catalog.ts`. Status mapping: `src/lib/catalog/http.ts`. Pricing uses `src/lib/pricing/rules.ts`, `calculate.ts`, and `catalog.ts`. The quote route returns JSON for unexpected pricing failures. Checkout derives buyer identity from a verified session. Guest orders have a null buyer ID.
 
 ## Product list
 
@@ -32,6 +32,43 @@ No request body. Path ID must be a UUID. Success: `{ "ok": true, "data": Product
 - `inspection`: `{ verification_status, tonevault_score, score_scale: 100, condition_notes, is_verified, inspection_level }`. Level maps Fully Verified → `in_person`, Remote Verified → `remote`, Unverified → `none`.
 
 Malformed and absent product IDs return `{ "ok": false, "code": "NOT_FOUND", "error": "Instrument not found." }` with 404. Database errors are 500, not 404, at the API; the existing Detail UI still treats every action error as not-found until Member 2's separate UX PR.
+
+## Pricing quote — read-only
+
+Request JSON:
+
+```json
+{
+  "product_id": "<product UUID>",
+  "quantity": 1,
+  "verification_option": "none"
+}
+```
+
+`verification_option` is optional and defaults to `none`; accepted values are `none`, `remote`, and `physical`. The server reads the current product price and active rules. Unknown browser money fields such as `total`, `commission_amount`, and `verification_fee` are stripped. Success (200) shape:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "product_id": "<product UUID>",
+    "quantity": 1,
+    "pricing": {
+      "unit_price": 168000,
+      "subtotal_amount": 168000,
+      "verification_option": "none",
+      "verification_fee": 0,
+      "commission_rate_bps": 800,
+      "commission_amount": 13440,
+      "seller_payout_amount": 154560,
+      "platform_revenue_amount": 13440,
+      "total_amount": 168000
+    }
+  }
+}
+```
+
+The quote does not insert an order, reduce stock, or reserve an instrument. The shown shape is a contract/example verified by automated tests; it is not a claim that this exact product was quoted on a deployment.
 
 ## Create order — simulated payment only
 
