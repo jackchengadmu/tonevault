@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/src/lib/supabase/admin";
+import { isCatalogPreview } from "@/src/lib/catalog/preview-mode";
 import { pricingQuoteSchema } from "@/src/lib/validators/catalog";
 import type {
   ActionResult,
@@ -33,6 +34,25 @@ function fail(code: CatalogErrorCode, error: string): ActionResult<never> {
 }
 
 const loadCatalogProduct: CatalogProductLoader = async (productId) => {
+  if (isCatalogPreview()) {
+    const { previewProducts } = await import("@/src/lib/catalog/mock-data");
+    const product = previewProducts.find((item) => item.id === productId);
+
+    if (!product) {
+      return fail("NOT_FOUND", "Instrument not found.");
+    }
+
+    return {
+      ok: true,
+      data: {
+        id: product.id,
+        price: product.price,
+        status: product.status,
+        stock: product.stock,
+      },
+    };
+  }
+
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("products")
